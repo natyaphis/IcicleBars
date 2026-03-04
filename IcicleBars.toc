@@ -2,7 +2,7 @@
 ## Title: IcicleBars
 ## Notes: Frost Mage Icicles (5 bars)
 ## Author: Nathan
-## Version: 1.0.1
+## Version: 1.0.2
 ## SavedVariables: IcicleBarsDB
 ## IconTexture: Interface\AddOns\IcicleBars\Media\Icon.tga
 

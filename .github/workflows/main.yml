@@ -15,24 +15,33 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v4
 
-      - name: Prepare package folder
+      - name: Prepare package folder (exclude dev files)
         run: |
+          set -euo pipefail
           rm -rf package
-          mkdir -p package
-          cp -r . package/IcicleBars
+          mkdir -p package/IcicleBars
+
+          # Copy everything except unwanted folders/files
+          rsync -av --delete \
+            --exclude ".git/" \
+            --exclude ".github/" \
+            --exclude ".vscode/" \
+            --exclude ".gitignore" \
+            --exclude ".gitattributes" \
+            --exclude "package/" \
+            ./ package/IcicleBars/
+
+          echo "Package content:"
+          find package/IcicleBars -maxdepth 2 -print
 
       - name: Create zip
         run: |
+          set -euo pipefail
           cd package
-          zip -r "../IcicleBars-${{ github.event.release.tag_name }}.zip" IcicleBars \
-            -x "IcicleBars/.git/*" \
-            -x "IcicleBars/.github/*" \
-            -x "IcicleBars/.vscode/*" \
-            -x "IcicleBars/.gitignore" \
-            -x "IcicleBars/.gitattributes"
+          ZIP_NAME="../IcicleBars-${{ github.event.release.tag_name }}.zip"
+          zip -r "$ZIP_NAME" IcicleBars
 
       - name: Upload zip to release
         uses: softprops/action-gh-release@v2
         with:
           files: IcicleBars-${{ github.event.release.tag_name }}.zip
-          
