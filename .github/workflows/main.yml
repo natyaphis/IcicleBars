@@ -15,31 +15,24 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v4
 
-      - name: Prepare addon folder
+      - name: Prepare package folder
         run: |
-          set -e
-
-          ROOT="$GITHUB_WORKSPACE"
-          BUILD="$GITHUB_WORKSPACE/build/IcicleBars"
-
-          rm -rf "$BUILD"
-          mkdir -p "$BUILD"
-
-          cp "$ROOT/IcicleBars.lua" "$BUILD/"
-          cp "$ROOT/IcicleBars.toc" "$BUILD/"
-          cp "$ROOT/README.md" "$BUILD/"
-          cp "$ROOT/LICENSE" "$BUILD/"
-          cp -r "$ROOT/Locale" "$BUILD/"
-
-          echo "Files in build folder:"
-          ls -R "$BUILD"
+          rm -rf package
+          mkdir -p package
+          cp -r . package/IcicleBars
 
       - name: Create zip
         run: |
-          cd build
-          zip -r "../IcicleBars-${{ github.event.release.tag_name }}.zip" IcicleBars
+          cd package
+          zip -r "../IcicleBars-${{ github.event.release.tag_name }}.zip" IcicleBars \
+            -x "IcicleBars/.git/*" \
+            -x "IcicleBars/.github/*" \
+            -x "IcicleBars/.vscode/*" \
+            -x "IcicleBars/.gitignore" \
+            -x "IcicleBars/.gitattributes"
 
       - name: Upload zip to release
         uses: softprops/action-gh-release@v2
         with:
           files: IcicleBars-${{ github.event.release.tag_name }}.zip
+          
