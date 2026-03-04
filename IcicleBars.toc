@@ -2,7 +2,7 @@
 ## Title: IcicleBars
 ## Notes: Frost Mage Icicles (5 bars)
 ## Author: Nathan
-## Version: 1.0
+## Version: 1.0.0
 ## SavedVariables: IcicleBarsDB
 
 Locale\enUS.lua
