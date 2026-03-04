@@ -1,0 +1,45 @@
+name: Package Addon
+
+on:
+  release:
+    types: [published]
+
+permissions:
+  contents: write
+
+jobs:
+  package:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Prepare addon folder
+        run: |
+          set -e
+
+          ROOT="$GITHUB_WORKSPACE"
+          BUILD="$GITHUB_WORKSPACE/build/IcicleBars"
+
+          rm -rf "$BUILD"
+          mkdir -p "$BUILD"
+
+          cp "$ROOT/IcicleBars.lua" "$BUILD/"
+          cp "$ROOT/IcicleBars.toc" "$BUILD/"
+          cp "$ROOT/README.md" "$BUILD/"
+          cp "$ROOT/LICENSE" "$BUILD/"
+          cp -r "$ROOT/Locale" "$BUILD/"
+
+          echo "Files in build folder:"
+          ls -R "$BUILD"
+
+      - name: Create zip
+        run: |
+          cd build
+          zip -r "../IcicleBars-${{ github.event.release.tag_name }}.zip" IcicleBars
+
+      - name: Upload zip to release
+        uses: softprops/action-gh-release@v2
+        with:
+          files: IcicleBars-${{ github.event.release.tag_name }}.zip
