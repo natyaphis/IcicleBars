@@ -1,4 +1,4 @@
--- IcicleBars.lua (v1.0.0)
+-- IcicleBars.lua (v1.0.1)
 local ADDON_NAME, ns = ...
 ns = ns or {}
 
