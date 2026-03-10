@@ -1,45 +1,36 @@
 # IcicleBars
 
-IcicleBars is a lightweight World of Warcraft addon for Frost Mages that displays current **Icicle** stacks as a compact five-bar tracker.
+IcicleBars is a lightweight World of Warcraft Retail addon for Frost Mages. It shows your current Icicle stacks as a compact five-bar tracker and stays hidden outside Frost spec.
 
-The addon is designed to stay minimal in combat while still giving clear feedback about stack buildup. It only appears when the player is on the Frost Mage specialization and updates automatically as Icicles are gained or spent.
+## Screenshots
 
-## Highlights
+![Screenshot 1](Asset/1.png)
+![Screenshot 2](Asset/2.png)
+![Screenshot 3](Asset/3.png)
+![Screenshot 4](Asset/4.png)
 
-- Displays current Icicle stacks from `0` to `5`
-- Uses a clean five-bar layout for fast readability
-- Shows a distinct full-stack state at `5` Icicles
-- Supports configurable bar width, height, spacing, and screen position
-- Includes an in-game configuration window
-- Supports drag-and-drop repositioning when unlocked
-- Includes English (`enUS`, `enGB`) and Simplified Chinese (`zhCN`) localization
-- Stores character settings with WoW saved variables
+## Features
 
-## Requirements
-
-- World of Warcraft Retail
-- Frost Mage specialization
-
-The addon is intended for the modern Retail API and uses current aura APIs when available, with a fallback path for compatibility.
+- Displays `0` to `5` Icicles with a clear full-stack state
+- Minimal five-bar layout for fast readability
+- In-game options for size, spacing, position, and drag-to-move
+- English (`enUS`, `enGB`) and Simplified Chinese (`zhCN`) support
 
 ## Installation
 
-### Manual install
-
 1. Download or clone this repository.
 2. Make sure the folder is named `IcicleBars`.
-3. Place the folder in:
+3. Put it in:
 
 ```text
 World of Warcraft/_retail_/Interface/AddOns/
 ```
 
-4. Start or reload the game.
-5. Enable `IcicleBars` from the AddOns list if needed.
+4. Reload the game and enable `IcicleBars` if needed.
 
-## Usage
+## Commands
 
-Use any of the following slash commands in game to open the configuration window:
+Use any of these in game:
 
 ```text
 /iciclebars
@@ -47,93 +38,17 @@ Use any of the following slash commands in game to open the configuration window
 /ib
 ```
 
-The bar display is only shown when:
-
-- your character is a Mage
-- your active specialization is Frost
-
 ## Configuration
 
-The in-game configuration panel allows you to adjust:
+The options window lets you adjust:
 
-- `Width`: width of each bar
-- `Height`: height of each bar
-- `Gap`: spacing between bars
-- `X Offset`: horizontal offset from screen center
-- `Y Offset`: vertical offset from screen center
-- `Unlock to move`: enables dragging the bar frame directly
+- Bar width and height
+- Gap between bars
+- X/Y position
+- Unlock to drag the frame
 
-### Buttons
-
-- `Apply`: saves and applies the current values
-- `Default`: resets all settings to addon defaults
-- `Close`: closes the configuration window
-
-### Default values
-
-| Setting | Default |
-| --- | ---: |
-| Bar Width | `28.0` |
-| Bar Height | `12.0` |
-| Bar Gap | `4.0` |
-| X Offset | `0.0` |
-| Y Offset | `-150.0` |
-| Unlocked | `false` |
-
-## Visual Behavior
-
-- Empty bars are shown in a dim gray state
-- Bars with `1-4` Icicles are shown in bright blue
-- At `5` Icicles, all bars switch to a bright full-stack state
-
-This makes capped stacks immediately visible without adding extra text or combat noise.
-
-## Localization
-
-Current localized interfaces:
-
-- English (`enUS`, `enGB`)
-- Simplified Chinese (`zhCN`)
-
-If no locale entry is available for a key, the addon falls back safely to the key name.
-
-## Saved Variables
-
-The addon stores its configuration in:
-
-```text
-IcicleBarsDB
-```
-
-Settings are initialized automatically on first load and missing values are backfilled with defaults.
-
-## Project Structure
-
-```text
-IcicleBars/
-|- IcicleBars.lua
-|- IcicleBars.toc
-|- Locale/
-|  |- enUS.lua
-|  `- zhCN.lua
-`- Media/
-   `- Icon.tga
-```
-
-## Development Notes
-
-- Main addon entry point: `IcicleBars.lua`
-- TOC metadata and file loading order: `IcicleBars.toc`
-- Localization strings: `Locale/`
-- Addon icon asset: `Media/Icon.tga`
-
-The addon responds to:
-
-- `ADDON_LOADED`
-- `PLAYER_LOGIN`
-- `PLAYER_SPECIALIZATION_CHANGED`
-- `UNIT_AURA` on the player
+Settings are saved in `IcicleBarsDB`.
 
 ## License
 
-This project is licensed under the MIT License. See [LICENSE](LICENSE) for details.
+MIT. See [LICENSE](LICENSE).
