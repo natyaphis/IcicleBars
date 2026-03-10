@@ -4,10 +4,9 @@ IcicleBars is a lightweight World of Warcraft Retail addon for Frost Mages. It s
 
 ## Screenshots
 
-![Screenshot 1](Asset/1.png)
-![Screenshot 2](Asset/2.png)
-![Screenshot 3](Asset/3.png)
-![Screenshot 4](Asset/4.png)
+![Bar 1](Asset/bar1.png)
+![Bar 2](Asset/bar2.png)
+![Settings](Asset/Settings.png)
 
 ## Features
 

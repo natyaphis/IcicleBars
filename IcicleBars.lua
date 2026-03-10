@@ -9,11 +9,12 @@ local MAX_STACKS = 5
 local FROST_SPEC_ID = 64
 
 local defaults = {
-    barWidth  = 28.0,
-    barHeight = 12.0,
-    barGap    = 4.0,
+    barWidth  = 57.0,
+    barHeight = 8.0,
+    barGap    = 1.2,
+    border    = 1.5,
     offsetX   = 0.0,
-    offsetY   = -150.0,
+    offsetY   = -200.0,
     unlocked  = false,
 }
 
@@ -53,9 +54,22 @@ local bars = {}
 local function EnsureBars()
     for i = 1, MAX_STACKS do
         if not bars[i] then
-            local bar = frame:CreateTexture(nil, "ARTWORK")
-            bar:SetColorTexture(0.2, 0.2, 0.2, 0.8)
-            bars[i] = bar
+            local barFrame = CreateFrame("Frame", nil, frame)
+            local fill = barFrame:CreateTexture(nil, "ARTWORK")
+            fill:SetColorTexture(0.2, 0.2, 0.2, 0.8)
+
+            local borders = {}
+            for side = 1, 4 do
+                local border = barFrame:CreateTexture(nil, "BORDER")
+                border:SetColorTexture(0, 0, 0, 1)
+                borders[side] = border
+            end
+
+            bars[i] = {
+                frame = barFrame,
+                fill = fill,
+                borders = borders,
+            }
         end
     end
 end
@@ -90,19 +104,56 @@ local function ApplyLayout()
     EnsureBars()
 
     local db = IcicleBarsDB
-    local w, h, gap = db.barWidth, db.barHeight, db.barGap
+    local w, h, gap, border = db.barWidth, db.barHeight, db.barGap, db.border
+    local segmentW = w
+    local segmentH = h
+    local innerW = math.max(1, w - (border * 2))
+    local innerH = math.max(1, h - (border * 2))
 
-    local totalW = (w * MAX_STACKS) + (gap * (MAX_STACKS - 1))
-    frame:SetSize(totalW, h)
+    local totalW = (segmentW * MAX_STACKS) + (gap * (MAX_STACKS - 1))
+    frame:SetSize(totalW, segmentH)
 
     frame:ClearAllPoints()
     frame:SetPoint("CENTER", UIParent, "CENTER", db.offsetX, db.offsetY)
 
     for i = 1, MAX_STACKS do
         local bar = bars[i]
-        bar:SetSize(w, h)
-        bar:ClearAllPoints()
-        bar:SetPoint("LEFT", frame, "LEFT", (i - 1) * (w + gap), 0)
+        bar.frame:SetSize(segmentW, segmentH)
+        bar.frame:ClearAllPoints()
+        bar.frame:SetPoint("LEFT", frame, "LEFT", (i - 1) * (segmentW + gap), 0)
+
+        bar.fill:SetSize(innerW, innerH)
+        bar.fill:ClearAllPoints()
+        bar.fill:SetPoint("TOPLEFT", bar.frame, "TOPLEFT", border, -border)
+
+        local top, bottom, left, right = unpack(bar.borders)
+        if border > 0 then
+            top:SetPoint("TOPLEFT", bar.frame, "TOPLEFT", 0, 0)
+            top:SetPoint("TOPRIGHT", bar.frame, "TOPRIGHT", 0, 0)
+            top:SetHeight(border)
+
+            bottom:SetPoint("BOTTOMLEFT", bar.frame, "BOTTOMLEFT", 0, 0)
+            bottom:SetPoint("BOTTOMRIGHT", bar.frame, "BOTTOMRIGHT", 0, 0)
+            bottom:SetHeight(border)
+
+            left:SetPoint("TOPLEFT", bar.frame, "TOPLEFT", 0, 0)
+            left:SetPoint("BOTTOMLEFT", bar.frame, "BOTTOMLEFT", 0, 0)
+            left:SetWidth(border)
+
+            right:SetPoint("TOPRIGHT", bar.frame, "TOPRIGHT", 0, 0)
+            right:SetPoint("BOTTOMRIGHT", bar.frame, "BOTTOMRIGHT", 0, 0)
+            right:SetWidth(border)
+
+            top:Show()
+            bottom:Show()
+            left:Show()
+            right:Show()
+        else
+            top:Hide()
+            bottom:Hide()
+            left:Hide()
+            right:Hide()
+        end
     end
 
     if db.unlocked then
@@ -148,14 +199,15 @@ local function UpdateBars()
 
     local count = GetIcicleStacks()
     for i = 1, MAX_STACKS do
+        local fill = bars[i].fill
         if i <= count then
             if count == MAX_STACKS then
-                bars[i]:SetColorTexture(1, 1, 1, 1) -- 5 stacks = full bright
+                fill:SetColorTexture(1, 1, 1, 1) -- 5 stacks = full bright
             else
-                bars[i]:SetColorTexture(0.2, 0.6, 1, 1) -- 1-4 stacks = bright blue
+                fill:SetColorTexture(0.2, 0.6, 1, 1) -- 1-4 stacks = bright blue
             end
         else
-            bars[i]:SetColorTexture(0.2, 0.2, 0.2, 0.8) -- empty bar = dim gray
+            fill:SetColorTexture(0.2, 0.2, 0.2, 0.8) -- empty bar = dim gray
         end
     end
 end
@@ -163,9 +215,9 @@ end
 -- ----------------------------
 -- Standalone Config UI
 -- ----------------------------
-local config = CreateFrame("Frame", "IcicleBarsConfigFrame", UIParent, "BackdropTemplate")
+local config = CreateFrame("Frame", "IcicleBarsConfigFrame", UIParent, "BasicFrameTemplateWithInset")
 config:Hide()
-config:SetSize(360, 270)
+config:SetSize(360, 360)
 config:SetPoint("CENTER")
 config:SetFrameStrata("DIALOG")
 config:SetClampedToScreen(true)
@@ -174,139 +226,211 @@ config:EnableMouse(true)
 config:RegisterForDrag("LeftButton")
 config:SetScript("OnDragStart", config.StartMoving)
 config:SetScript("OnDragStop", config.StopMovingOrSizing)
-config:SetBackdrop({
-    bgFile = "Interface\\DialogFrame\\UI-DialogBox-Background",
-    edgeFile = "Interface\\DialogFrame\\UI-DialogBox-Border",
-    tile = true, tileSize = 32, edgeSize = 32,
-    insets = { left = 11, right = 12, top = 12, bottom = 11 }
-})
-config:SetBackdropColor(1, 1, 1, 1)
+config.TitleText:SetText(L["TITLE"])
+config.TitleText:ClearAllPoints()
+config.TitleText:SetPoint("TOP", 0, -10)
 
-local title = config:CreateFontString(nil, "ARTWORK", "GameFontNormalLarge")
-title:SetPoint("TOPLEFT", 18, -16)
-title:SetText(L["TITLE"])
+local function GetAddonVersion()
+    if C_AddOns and C_AddOns.GetAddOnMetadata then
+        return C_AddOns.GetAddOnMetadata(ADDON_NAME, "Version")
+    end
+    if GetAddOnMetadata then
+        return GetAddOnMetadata(ADDON_NAME, "Version")
+    end
+    return nil
+end
+
+local versionText = config:CreateFontString(nil, "ARTWORK", "GameFontNormalSmall")
+versionText:SetPoint("TOP", config.TitleText, "BOTTOM", 0, -6)
+versionText:SetTextColor(1, 1, 1)
+versionText:SetText(GetAddonVersion() or "0.0.0")
 
 local subtitle = config:CreateFontString(nil, "ARTWORK", "GameFontHighlightSmall")
-subtitle:SetPoint("TOPLEFT", title, "BOTTOMLEFT", 0, -8)
+subtitle:SetPoint("TOP", versionText, "BOTTOM", 0, -10)
+subtitle:SetWidth(300)
+subtitle:SetJustifyH("CENTER")
+subtitle:SetJustifyV("TOP")
+subtitle:SetWordWrap(true)
 subtitle:SetText(L["SUBTITLE"])
 
-local function CreateLabel(parent, text, x, y)
+local function CreateLabel(parent, text)
     local fs = parent:CreateFontString(nil, "ARTWORK", "GameFontNormal")
-    fs:SetPoint("TOPLEFT", x, y)
     fs:SetText(text)
+    fs:SetJustifyH("RIGHT")
     return fs
 end
 
-local function CreateEditBox(parent, x, y)
+local function ApplyConfigChange()
+    ApplyLayout()
+    UpdateBars()
+end
+
+local function NormalizeNumericInput(text)
+    local t = (text or ""):gsub("[^%d%-%.,]", ""):gsub(",", ".")
+    t = t:gsub("%-+", "-")
+    if t:sub(1, 1) ~= "-" then
+        t = t:gsub("%-", "")
+    end
+    local firstDot = t:find("%.")
+    if firstDot then
+        local before = t:sub(1, firstDot)
+        local after = t:sub(firstDot + 1):gsub("%.", "")
+        t = before .. after
+    end
+    return t
+end
+
+local function CommitEditBoxValue(editBox)
+    local value = tonumber(editBox:GetText())
+    if not value then
+        return false
+    end
+
+    local clamped = ClampNum(value, editBox.minValue, editBox.maxValue, 1)
+    if IcicleBarsDB[editBox.dbKey] ~= clamped then
+        IcicleBarsDB[editBox.dbKey] = clamped
+        ApplyConfigChange()
+    end
+    return true
+end
+
+local function CreateEditBox(parent, dbKey, minValue, maxValue)
     local eb = CreateFrame("EditBox", nil, parent, "InputBoxTemplate")
-    eb:SetSize(90, 20)
+    eb:SetSize(126, 24)
     eb:SetAutoFocus(false)
     eb:SetNumeric(false)
     eb:SetJustifyH("LEFT")
-    eb:SetPoint("TOPLEFT", x, y)
-    eb:SetScript("OnEscapePressed", eb.ClearFocus)
-    eb:SetScript("OnEnterPressed", function(self) self:ClearFocus() end)
+    eb:SetTextInsets(6, 6, 0, 0)
+    eb.dbKey = dbKey
+    eb.minValue = minValue
+    eb.maxValue = maxValue
+    eb:SetScript("OnEscapePressed", function(self)
+        self:ClearFocus()
+        config:Refresh()
+    end)
+    eb:SetScript("OnEnterPressed", function(self)
+        CommitEditBoxValue(self)
+        self:ClearFocus()
+        config:Refresh()
+    end)
     eb:SetScript("OnTextChanged", function(self, userInput)
         if not userInput then return end
-        local t = (self:GetText() or ""):gsub("[^%d%-%.,]", ""):gsub(",", ".")
-        t = t:gsub("%-+", "-")
-        if t:sub(1,1) ~= "-" then t = t:gsub("%-", "") end
-        local firstDot = t:find("%.")
-        if firstDot then
-            local before = t:sub(1, firstDot)
-            local after = t:sub(firstDot + 1):gsub("%.", "")
-            t = before .. after
-        end
+        local t = NormalizeNumericInput(self:GetText())
         if t ~= self:GetText() then
             local cursor = self:GetCursorPosition()
             self:SetText(t)
             self:SetCursorPosition(math.min(cursor, #t))
         end
+
+        if tonumber(t) then
+            CommitEditBoxValue(self)
+        end
+    end)
+    eb:SetScript("OnEditFocusLost", function(self)
+        CommitEditBoxValue(self)
+        config:Refresh()
     end)
     return eb
 end
 
-local function CreateCheckBox(parent, labelText, x, y)
-    local cb = CreateFrame("CheckButton", nil, parent, "ChatConfigCheckButtonTemplate")
-    cb:SetPoint("TOPLEFT", x, y)
-    cb.Text:SetText(labelText)
-    return cb
+local function CreateLabeledInputRow(parent, offsetY, labelText, dbKey, minValue, maxValue)
+    local row = CreateFrame("Frame", nil, parent)
+    row:SetSize(230, 24)
+    row:SetPoint("TOP", 0, offsetY)
+
+    local label = CreateLabel(parent, labelText)
+    label:SetPoint("LEFT", row, "LEFT", 0, 0)
+    label:SetWidth(88)
+
+    local box = CreateEditBox(parent, dbKey, minValue, maxValue)
+    box:SetPoint("LEFT", label, "RIGHT", 16, 0)
+
+    return row, label, box
 end
 
--- Layout tuning: move edit boxes left and keep right edge inside frame
-local LEFT_LABEL_X  = 35
-local LEFT_BOX_X    = 80
-local RIGHT_LABEL_X = 190
-local RIGHT_BOX_X   = 240
+config.rowWidth, config.lblWidth, config.ebWidth = CreateLabeledInputRow(config, -108, L["BAR_WIDTH"], "barWidth", 4.0, 200.0)
+config.rowHeight, config.lblHeight, config.ebHeight = CreateLabeledInputRow(config, -140, L["BAR_HEIGHT"], "barHeight", 2.0, 100.0)
+config.rowGap, config.lblGap, config.ebGap = CreateLabeledInputRow(config, -172, L["BAR_GAP"], "barGap", 0.0, 100.0)
+config.rowBorder, config.lblBorder, config.ebBorder = CreateLabeledInputRow(config, -204, L["BORDER"], "border", 0.0, 20.0)
+config.rowX, config.lblX, config.ebX = CreateLabeledInputRow(config, -236, L["OFFSET_X"], "offsetX", -5000.0, 5000.0)
+config.rowY, config.lblY, config.ebY = CreateLabeledInputRow(config, -268, L["OFFSET_Y"], "offsetY", -5000.0, 5000.0)
 
-CreateLabel(config, L["BAR_WIDTH"], LEFT_LABEL_X, -70)
-config.ebWidth = CreateEditBox(config, LEFT_BOX_X, -68)
-
-CreateLabel(config, L["BAR_HEIGHT"], LEFT_LABEL_X, -110)
-config.ebHeight = CreateEditBox(config, LEFT_BOX_X, -108)
-
-CreateLabel(config, L["BAR_GAP"], LEFT_LABEL_X, -150)
-config.ebGap = CreateEditBox(config, LEFT_BOX_X, -148)
-
-CreateLabel(config, L["OFFSET_X"], RIGHT_LABEL_X, -70)
-config.ebX = CreateEditBox(config, RIGHT_BOX_X, -68)
-
-CreateLabel(config, L["OFFSET_Y"], RIGHT_LABEL_X, -110)
-config.ebY = CreateEditBox(config, RIGHT_BOX_X, -108)
-
-config.cbUnlock = CreateCheckBox(config, L["UNLOCK_MOVE"], 18, -195)
-
-config.btnApply = CreateFrame("Button", nil, config, "UIPanelButtonTemplate")
-config.btnApply:SetSize(100, 22)
-config.btnApply:SetPoint("BOTTOMLEFT", 18, 18)
-config.btnApply:SetText(L["APPLY"])
+config.btnUnlock = CreateFrame("Button", nil, config, "UIPanelButtonTemplate")
+config.btnUnlock:SetSize(96, 24)
+config.btnUnlock:SetPoint("BOTTOMLEFT", 18, 18)
 
 config.btnReset = CreateFrame("Button", nil, config, "UIPanelButtonTemplate")
-config.btnReset:SetSize(100, 22)
-config.btnReset:SetPoint("LEFT", config.btnApply, "RIGHT", 10, 0)
+config.btnReset:SetSize(96, 24)
+config.btnReset:SetPoint("LEFT", config.btnUnlock, "RIGHT", 12, 0)
 config.btnReset:SetText(L["RESET"])
 
 config.btnClose = CreateFrame("Button", nil, config, "UIPanelButtonTemplate")
-config.btnClose:SetSize(100, 22)
-config.btnClose:SetPoint("LEFT", config.btnReset, "RIGHT", 10, 0)
+config.btnClose:SetSize(96, 24)
+config.btnClose:SetPoint("LEFT", config.btnReset, "RIGHT", 12, 0)
 config.btnClose:SetText(L["CLOSE"])
+
+local function ApplyElvUISkin()
+    if config.isElvUISkinned then
+        return
+    end
+
+    local E = _G.ElvUI and unpack(_G.ElvUI)
+    if not E or not E.private or not E.private.skins or not E.private.skins.blizzard then
+        return
+    end
+
+    local S = E.GetModule and E:GetModule("Skins", true)
+    if not S then
+        return
+    end
+
+    if S.HandleFrame then
+        S:HandleFrame(config)
+    end
+    if S.HandleEditBox then
+        S:HandleEditBox(config.ebWidth)
+        S:HandleEditBox(config.ebHeight)
+        S:HandleEditBox(config.ebGap)
+        S:HandleEditBox(config.ebBorder)
+        S:HandleEditBox(config.ebX)
+        S:HandleEditBox(config.ebY)
+    end
+    if S.HandleButton then
+        S:HandleButton(config.btnUnlock)
+        S:HandleButton(config.btnReset)
+        S:HandleButton(config.btnClose)
+    end
+
+    config.isElvUISkinned = true
+end
 
 function config:Refresh()
     local db = IcicleBarsDB
     self.ebWidth:SetText(string.format("%.1f", db.barWidth))
     self.ebHeight:SetText(string.format("%.1f", db.barHeight))
     self.ebGap:SetText(string.format("%.1f", db.barGap))
+    self.ebBorder:SetText(string.format("%.1f", db.border))
     self.ebX:SetText(string.format("%.1f", db.offsetX))
     self.ebY:SetText(string.format("%.1f", db.offsetY))
-    self.cbUnlock:SetChecked(db.unlocked)
+    self.btnUnlock:SetText(db.unlocked and "|cff7dd3ff" .. L["LOCK"] .. "|r" or L["UNLOCK"])
 end
 
-local function ApplyFromConfig()
-    local db = IcicleBarsDB
-    db.barWidth  = ClampNum(config.ebWidth:GetText(), 4.0, 200.0, 1)
-    db.barHeight = ClampNum(config.ebHeight:GetText(), 2.0, 100.0, 1)
-    db.barGap    = ClampNum(config.ebGap:GetText(), 0.0, 100.0, 1)
-    db.offsetX   = ClampNum(config.ebX:GetText(), -5000.0, 5000.0, 1)
-    db.offsetY   = ClampNum(config.ebY:GetText(), -5000.0, 5000.0, 1)
-    db.unlocked  = config.cbUnlock:GetChecked() and true or false
-
-    ApplyLayout()
-    UpdateBars()
+config.btnUnlock:SetScript("OnClick", function()
+    IcicleBarsDB.unlocked = not IcicleBarsDB.unlocked
+    ApplyConfigChange()
     config:Refresh()
-end
-
-config.btnApply:SetScript("OnClick", ApplyFromConfig)
+end)
 config.btnReset:SetScript("OnClick", function()
     IcicleBarsDB = {}
     CopyDefaults(IcicleBarsDB, defaults)
-    ApplyLayout()
-    UpdateBars()
+    ApplyConfigChange()
     config:Refresh()
 end)
 config.btnClose:SetScript("OnClick", function() config:Hide() end)
 
 function IcicleBars_OpenConfig()
     if not IcicleBarsDB then return end
+    ApplyElvUISkin()
     config:Refresh()
     config:Show()
 end
@@ -330,6 +454,7 @@ frame:SetScript("OnEvent", function(self, event, arg1)
         ApplyLayout()
         UpdateBars()
     elseif event == "PLAYER_LOGIN" then
+        ApplyElvUISkin()
         ApplyLayout()
         UpdateBars()
     elseif event == "PLAYER_SPECIALIZATION_CHANGED" then

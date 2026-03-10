@@ -6,17 +6,18 @@ ns.L = ns.L or {}
 local L = ns.L
 if GetLocale() ~= "enUS" and GetLocale() ~= "enGB" then return end
 
-L["TITLE"] = "IcicleBars"
-L["SUBTITLE"] = "Configure bar size and position (shown only in Frost spec)"
+L["TITLE"] = "IcicleBars by NatYaphis"
+L["SUBTITLE"] = "Configure bar size and position\nshown only in Frost spec"
 
 L["BAR_WIDTH"]  = "Width"
 L["BAR_HEIGHT"] = "Height"
 L["BAR_GAP"]    = "Gap"
+L["BORDER"]     = "Border"
 L["OFFSET_X"]   = "X Offset"
 L["OFFSET_Y"]   = "Y Offset"
 
-L["UNLOCK_MOVE"] = "Unlock to move (drag bars when unlocked)"
+L["UNLOCK"] = "Unlock"
+L["LOCK"] = "Lock"
 
-L["APPLY"] = "Apply"
 L["RESET"] = "Default"
 L["CLOSE"] = "Close"
