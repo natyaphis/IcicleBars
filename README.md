@@ -50,4 +50,4 @@ Settings are saved in `IcicleBarsDB`.
 
 ## License
 
-MIT. See [LICENSE](LICENSE).
+All Rights Reserved. See [LICENSE](LICENSE).
