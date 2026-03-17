@@ -15,21 +15,24 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v4
 
-      - name: Prepare package folder (exclude dev files)
+      - name: Prepare package folder
         run: |
           set -euo pipefail
           rm -rf package
           mkdir -p package/IcicleBars
 
-          # Copy everything except unwanted folders/files
           rsync -av --delete \
             --exclude ".git/" \
             --exclude ".github/" \
             --exclude ".vscode/" \
-            --exclude "Asset/" \
+            --exclude ".idea/" \
             --exclude ".gitignore" \
             --exclude ".gitattributes" \
             --exclude "package/" \
+            --exclude "CHANGELOG.md" \
+            --exclude "AGENTS.md" \
+            --exclude "scripts/" \
+            --exclude "Asset/" \
             ./ package/IcicleBars/
 
           echo "Package content:"
