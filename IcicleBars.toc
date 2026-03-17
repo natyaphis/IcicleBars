@@ -5,6 +5,8 @@
 ## Version: 1.1.0
 ## SavedVariables: IcicleBarsDB
 ## IconTexture: Interface\AddOns\IcicleBars\Media\Icon.tga
+## Category: Combat
+## Category-zhCN: 战斗
 
 Locales\enUS.lua
 Locales\zhCN.lua
