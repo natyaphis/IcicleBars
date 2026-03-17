@@ -6,6 +6,6 @@
 ## SavedVariables: IcicleBarsDB
 ## IconTexture: Interface\AddOns\IcicleBars\Media\Icon.tga
 
-Locale\enUS.lua
-Locale\zhCN.lua
+Locales\enUS.lua
+Locales\zhCN.lua
 IcicleBars.lua
