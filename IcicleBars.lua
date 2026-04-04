@@ -15,6 +15,8 @@ local defaults = {
     border    = 1.5,
     offsetX   = 0.0,
     offsetY   = -200.0,
+    partialColor = { r = 0.2, g = 0.6, b = 1.0 },
+    fullColor = { r = 1.0, g = 1.0, b = 1.0 },
     unlocked  = false,
 }
 
@@ -197,17 +199,18 @@ local function UpdateBars()
 
     frame:Show()
 
+    local db = IcicleBarsDB
     local count = GetIcicleStacks()
     for i = 1, MAX_STACKS do
         local fill = bars[i].fill
         if i <= count then
             if count == MAX_STACKS then
-                fill:SetColorTexture(1, 1, 1, 1) -- 5 stacks = full bright
+                fill:SetColorTexture(db.fullColor.r, db.fullColor.g, db.fullColor.b, 1)
             else
-                fill:SetColorTexture(0.2, 0.6, 1, 1) -- 1-4 stacks = bright blue
+                fill:SetColorTexture(db.partialColor.r, db.partialColor.g, db.partialColor.b, 1)
             end
         else
-            fill:SetColorTexture(0.2, 0.2, 0.2, 0.8) -- empty bar = dim gray
+            fill:SetColorTexture(0.2, 0.2, 0.2, 0.8)
         end
     end
 end
@@ -217,7 +220,7 @@ end
 -- ----------------------------
 local config = CreateFrame("Frame", "IcicleBarsConfigFrame", UIParent, "BasicFrameTemplateWithInset")
 config:Hide()
-config:SetSize(360, 360)
+config:SetSize(360, 424)
 config:SetPoint("CENTER")
 config:SetFrameStrata("DIALOG")
 config:SetClampedToScreen(true)
@@ -348,12 +351,102 @@ local function CreateLabeledInputRow(parent, offsetY, labelText, dbKey, minValue
     return row, label, box
 end
 
+local function UpdateColorSwatch(button, color)
+    button.swatch:SetColorTexture(color.r, color.g, color.b, 1)
+end
+
+local function OpenColorPicker(initialColor, onChanged)
+    if ColorPickerFrame and ColorPickerFrame.SetupColorPickerAndShow then
+        ColorPickerFrame:SetupColorPickerAndShow({
+            r = initialColor.r,
+            g = initialColor.g,
+            b = initialColor.b,
+            hasOpacity = false,
+            swatchFunc = function()
+                local r, g, b = ColorPickerFrame:GetColorRGB()
+                onChanged(r, g, b)
+            end,
+            opacityFunc = nil,
+            cancelFunc = function(previousValues)
+                if previousValues then
+                    onChanged(previousValues.r, previousValues.g, previousValues.b)
+                end
+            end,
+            previousValues = {
+                r = initialColor.r,
+                g = initialColor.g,
+                b = initialColor.b,
+            },
+        })
+        return
+    end
+
+    if not ColorPickerFrame then
+        return
+    end
+
+    ColorPickerFrame.hasOpacity = false
+    ColorPickerFrame.previousValues = {
+        r = initialColor.r,
+        g = initialColor.g,
+        b = initialColor.b,
+    }
+    ColorPickerFrame.func = function()
+        local r, g, b = ColorPickerFrame:GetColorRGB()
+        onChanged(r, g, b)
+    end
+    ColorPickerFrame.cancelFunc = function(previousValues)
+        if previousValues then
+            onChanged(previousValues.r, previousValues.g, previousValues.b)
+        end
+    end
+    ColorPickerFrame:SetColorRGB(initialColor.r, initialColor.g, initialColor.b)
+    ColorPickerFrame:Hide()
+    ColorPickerFrame:Show()
+end
+
+local function CreateColorPickerRow(parent, offsetY, labelText, dbKey)
+    local row = CreateFrame("Frame", nil, parent)
+    row:SetSize(230, 24)
+    row:SetPoint("TOP", 0, offsetY)
+
+    local label = CreateLabel(parent, labelText)
+    label:SetPoint("LEFT", row, "LEFT", 0, 0)
+    label:SetWidth(88)
+
+    local button = CreateFrame("Button", nil, parent, "UIPanelButtonTemplate")
+    button:SetSize(126, 24)
+    button:SetPoint("LEFT", label, "RIGHT", 16, 0)
+    button:SetText("")
+    button.dbKey = dbKey
+
+    local swatch = button:CreateTexture(nil, "ARTWORK")
+    swatch:SetSize(18, 18)
+    swatch:SetPoint("RIGHT", button, "RIGHT", -6, 0)
+    button.swatch = swatch
+
+    button:SetScript("OnClick", function(self)
+        local color = IcicleBarsDB[self.dbKey]
+        OpenColorPicker(color, function(r, g, b)
+            color.r = RoundTo(r, 3)
+            color.g = RoundTo(g, 3)
+            color.b = RoundTo(b, 3)
+            UpdateColorSwatch(self, color)
+            UpdateBars()
+        end)
+    end)
+
+    return row, label, button
+end
+
 config.rowWidth, config.lblWidth, config.ebWidth = CreateLabeledInputRow(config, -108, L["BAR_WIDTH"], "barWidth", 4.0, 200.0)
 config.rowHeight, config.lblHeight, config.ebHeight = CreateLabeledInputRow(config, -140, L["BAR_HEIGHT"], "barHeight", 2.0, 100.0)
 config.rowGap, config.lblGap, config.ebGap = CreateLabeledInputRow(config, -172, L["BAR_GAP"], "barGap", 0.0, 100.0)
 config.rowBorder, config.lblBorder, config.ebBorder = CreateLabeledInputRow(config, -204, L["BORDER"], "border", 0.0, 20.0)
 config.rowX, config.lblX, config.ebX = CreateLabeledInputRow(config, -236, L["OFFSET_X"], "offsetX", -5000.0, 5000.0)
 config.rowY, config.lblY, config.ebY = CreateLabeledInputRow(config, -268, L["OFFSET_Y"], "offsetY", -5000.0, 5000.0)
+config.rowPartialColor, config.lblPartialColor, config.btnPartialColor = CreateColorPickerRow(config, -300, L["PARTIAL_COLOR"], "partialColor")
+config.rowFullColor, config.lblFullColor, config.btnFullColor = CreateColorPickerRow(config, -332, L["FULL_COLOR"], "fullColor")
 
 config.btnUnlock = CreateFrame("Button", nil, config, "UIPanelButtonTemplate")
 config.btnUnlock:SetSize(96, 24)
@@ -399,6 +492,8 @@ local function ApplyElvUISkin()
         S:HandleButton(config.btnUnlock)
         S:HandleButton(config.btnReset)
         S:HandleButton(config.btnClose)
+        S:HandleButton(config.btnPartialColor)
+        S:HandleButton(config.btnFullColor)
     end
 
     config.isElvUISkinned = true
@@ -412,6 +507,8 @@ function config:Refresh()
     self.ebBorder:SetText(string.format("%.1f", db.border))
     self.ebX:SetText(string.format("%.1f", db.offsetX))
     self.ebY:SetText(string.format("%.1f", db.offsetY))
+    UpdateColorSwatch(self.btnPartialColor, db.partialColor)
+    UpdateColorSwatch(self.btnFullColor, db.fullColor)
     self.btnUnlock:SetText(db.unlocked and "|cff7dd3ff" .. L["LOCK"] .. "|r" or L["UNLOCK"])
 end
 
