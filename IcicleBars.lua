@@ -9,6 +9,12 @@ local MAX_STACKS = 5
 local FROST_SPEC_ID = 64
 local INVERTED_ALPHA = (WOW_PROJECT_ID ~= WOW_PROJECT_MAINLINE)
 
+local FALLBACK_TEXTURES = {
+    { name = "Blizzard", path = "Interface\\TargetingFrame\\UI-StatusBar" },
+    { name = "Solid", path = "Interface\\Buttons\\WHITE8X8" },
+    { name = "Raid", path = "Interface\\RaidFrame\\Raid-Bar-Hp-Fill" },
+}
+
 local defaults = {
     barWidth  = 57.0,
     barHeight = 8.0,
@@ -19,8 +25,80 @@ local defaults = {
     partialColor = { r = 0.2, g = 0.6, b = 1.0, a = 1.0 },
     fullColor = { r = 1.0, g = 1.0, b = 1.0, a = 1.0 },
     emptyColor = { r = 0.2, g = 0.2, b = 0.2, a = 0.8 },
+    barTexture = "Blizzard",
     unlocked  = false,
 }
+
+local function GetSharedMedia()
+    if LibStub then
+        local media = LibStub("LibSharedMedia-3.0", true)
+        if media then
+            return media
+        end
+    end
+
+    if _G.ElvUI then
+        local E = unpack(_G.ElvUI)
+        if E and E.Libs and E.Libs.LSM then
+            return E.Libs.LSM
+        end
+        if E and E.LSM then
+            return E.LSM
+        end
+    end
+end
+
+local function BuildTextureMap()
+    local map = {}
+    for _, entry in ipairs(FALLBACK_TEXTURES) do
+        map[entry.name] = entry.path
+    end
+
+    local media = GetSharedMedia()
+    if media and media.HashTable then
+        local hash = media:HashTable("statusbar")
+        if hash then
+            for name, path in pairs(hash) do
+                map[name] = path
+            end
+        end
+    end
+
+    return map
+end
+
+local function GetTextureEntries()
+    local map = BuildTextureMap()
+    local entries = {}
+    for name, path in pairs(map) do
+        entries[#entries + 1] = {
+            name = name,
+            path = path,
+        }
+    end
+
+    table.sort(entries, function(a, b)
+        return a.name:lower() < b.name:lower()
+    end)
+
+    return entries
+end
+
+local function HasBarTexture(textureName)
+    return BuildTextureMap()[textureName] ~= nil
+end
+
+local function GetBarTexturePath(textureName)
+    local map = BuildTextureMap()
+    return map[textureName] or map[defaults.barTexture] or FALLBACK_TEXTURES[1].path
+end
+
+local function NormalizeBarTexture(textureName)
+    if HasBarTexture(textureName) then
+        return textureName
+    end
+    return defaults.barTexture
+end
 
 local function CopyDefaults(dst, src)
     for k, v in pairs(src) do
@@ -60,7 +138,8 @@ local function EnsureBars()
         if not bars[i] then
             local barFrame = CreateFrame("Frame", nil, frame)
             local fill = barFrame:CreateTexture(nil, "ARTWORK")
-            fill:SetColorTexture(0.2, 0.2, 0.2, 0.8)
+            fill:SetTexture(GetBarTexturePath(defaults.barTexture))
+            fill:SetVertexColor(0.2, 0.2, 0.2, 0.8)
 
             local borders = {}
             for side = 1, 4 do
@@ -109,6 +188,7 @@ local function ApplyLayout()
 
     local db = IcicleBarsDB
     local w, h, gap, border = db.barWidth, db.barHeight, db.barGap, db.border
+    local texturePath = GetBarTexturePath(db.barTexture)
     local segmentW = w
     local segmentH = h
     local innerW = math.max(1, w - (border * 2))
@@ -129,6 +209,9 @@ local function ApplyLayout()
         bar.fill:SetSize(innerW, innerH)
         bar.fill:ClearAllPoints()
         bar.fill:SetPoint("TOPLEFT", bar.frame, "TOPLEFT", border, -border)
+        bar.fill:SetTexture(texturePath)
+        bar.fill:SetHorizTile(false)
+        bar.fill:SetVertTile(false)
 
         local top, bottom, left, right = unpack(bar.borders)
         if border > 0 then
@@ -207,12 +290,12 @@ local function UpdateBars()
         local fill = bars[i].fill
         if i <= count then
             if count == MAX_STACKS then
-                fill:SetColorTexture(db.fullColor.r, db.fullColor.g, db.fullColor.b, db.fullColor.a)
+                fill:SetVertexColor(db.fullColor.r, db.fullColor.g, db.fullColor.b, db.fullColor.a)
             else
-                fill:SetColorTexture(db.partialColor.r, db.partialColor.g, db.partialColor.b, db.partialColor.a)
+                fill:SetVertexColor(db.partialColor.r, db.partialColor.g, db.partialColor.b, db.partialColor.a)
             end
         else
-            fill:SetColorTexture(db.emptyColor.r, db.emptyColor.g, db.emptyColor.b, db.emptyColor.a)
+            fill:SetVertexColor(db.emptyColor.r, db.emptyColor.g, db.emptyColor.b, db.emptyColor.a)
         end
     end
 end
@@ -222,7 +305,7 @@ end
 -- ----------------------------
 local config = CreateFrame("Frame", "IcicleBarsConfigFrame", UIParent, "BasicFrameTemplateWithInset")
 config:Hide()
-config:SetSize(360, 456)
+config:SetSize(320, 450)
 config:SetPoint("CENTER")
 config:SetFrameStrata("DIALOG")
 config:SetClampedToScreen(true)
@@ -235,24 +318,9 @@ config.TitleText:SetText(L["TITLE"])
 config.TitleText:ClearAllPoints()
 config.TitleText:SetPoint("TOP", 0, -10)
 
-local function GetAddonVersion()
-    if C_AddOns and C_AddOns.GetAddOnMetadata then
-        return C_AddOns.GetAddOnMetadata(ADDON_NAME, "Version")
-    end
-    if GetAddOnMetadata then
-        return GetAddOnMetadata(ADDON_NAME, "Version")
-    end
-    return nil
-end
-
-local versionText = config:CreateFontString(nil, "ARTWORK", "GameFontNormalSmall")
-versionText:SetPoint("TOP", config.TitleText, "BOTTOM", 0, -6)
-versionText:SetTextColor(1, 1, 1)
-versionText:SetText(GetAddonVersion() or "0.0.0")
-
 local subtitle = config:CreateFontString(nil, "ARTWORK", "GameFontHighlightSmall")
-subtitle:SetPoint("TOP", versionText, "BOTTOM", 0, -10)
-subtitle:SetWidth(300)
+subtitle:SetPoint("TOP", config.TitleText, "BOTTOM", 0, -5)
+subtitle:SetWidth(260)
 subtitle:SetJustifyH("CENTER")
 subtitle:SetJustifyV("TOP")
 subtitle:SetWordWrap(true)
@@ -263,6 +331,32 @@ local function CreateLabel(parent, text)
     fs:SetText(text)
     fs:SetJustifyH("RIGHT")
     return fs
+end
+
+local function SetSingleLineEllipsizedText(fontString, text, maxWidth)
+    fontString:SetWordWrap(false)
+    fontString:SetMaxLines(1)
+    fontString:SetText(text or "")
+    if not maxWidth or fontString:GetStringWidth() <= maxWidth then
+        return
+    end
+
+    local source = text or ""
+    local low, high = 0, #source
+    local best = "..."
+    while low <= high do
+        local mid = math.floor((low + high) / 2)
+        local candidate = source:sub(1, mid) .. "..."
+        fontString:SetText(candidate)
+        if fontString:GetStringWidth() <= maxWidth then
+            best = candidate
+            low = mid + 1
+        else
+            high = mid - 1
+        end
+    end
+
+    fontString:SetText(best)
 end
 
 local function ApplyConfigChange()
@@ -503,28 +597,243 @@ local function CreateColorPickerRow(parent, offsetY, labelText, dbKey)
     return row, label, button
 end
 
-config.rowWidth, config.lblWidth, config.ebWidth = CreateLabeledInputRow(config, -108, L["BAR_WIDTH"], "barWidth", 4.0, 200.0)
-config.rowHeight, config.lblHeight, config.ebHeight = CreateLabeledInputRow(config, -140, L["BAR_HEIGHT"], "barHeight", 2.0, 100.0)
-config.rowGap, config.lblGap, config.ebGap = CreateLabeledInputRow(config, -172, L["BAR_GAP"], "barGap", 0.0, 100.0)
-config.rowBorder, config.lblBorder, config.ebBorder = CreateLabeledInputRow(config, -204, L["BORDER"], "border", 0.0, 20.0)
-config.rowX, config.lblX, config.ebX = CreateLabeledInputRow(config, -236, L["OFFSET_X"], "offsetX", -5000.0, 5000.0)
-config.rowY, config.lblY, config.ebY = CreateLabeledInputRow(config, -268, L["OFFSET_Y"], "offsetY", -5000.0, 5000.0)
-config.rowPartialColor, config.lblPartialColor, config.btnPartialColor = CreateColorPickerRow(config, -300, L["PARTIAL_COLOR"], "partialColor")
-config.rowFullColor, config.lblFullColor, config.btnFullColor = CreateColorPickerRow(config, -332, L["FULL_COLOR"], "fullColor")
-config.rowEmptyColor, config.lblEmptyColor, config.btnEmptyColor = CreateColorPickerRow(config, -364, L["EMPTY_COLOR"], "emptyColor")
+local function UpdateTextureDropdownPreview(dropdown)
+    local texturePath = GetBarTexturePath(IcicleBarsDB.barTexture)
+    dropdown.preview:SetTexture(texturePath)
+    SetSingleLineEllipsizedText(dropdown.text, IcicleBarsDB.barTexture, 104)
+
+    for _, button in ipairs(dropdown.optionButtons) do
+        local isSelected = (button.value == IcicleBarsDB.barTexture)
+        button.selected:SetShown(isSelected)
+    end
+end
+
+local function UpdateTextureDropdownScroll(dropdown)
+    local maxScroll = math.max(0, dropdown.content:GetHeight() - dropdown.scrollFrame:GetHeight())
+    dropdown.scrollBar:SetMinMaxValues(0, maxScroll)
+    dropdown.scrollBar:SetValue(math.min(dropdown.scrollBar:GetValue(), maxScroll))
+    dropdown.scrollBar:SetShown(maxScroll > 0)
+    dropdown.scrollFrame:SetVerticalScroll(dropdown.scrollBar:GetValue())
+end
+
+local function SetTextureDropdownOpen(dropdown, isOpen)
+    dropdown.isOpen = isOpen and true or false
+    dropdown.popup:SetShown(dropdown.isOpen)
+    if dropdown.isOpen then
+        UpdateTextureDropdownScroll(dropdown)
+    end
+end
+
+local function AdjustTextureDropdownScroll(dropdown, delta)
+    local minValue, maxValue = dropdown.scrollBar:GetMinMaxValues()
+    if maxValue <= minValue then
+        return
+    end
+
+    local step = 18 * 3
+    local newValue = dropdown.scrollBar:GetValue() - (delta * step)
+    if newValue < minValue then newValue = minValue end
+    if newValue > maxValue then newValue = maxValue end
+    dropdown.scrollBar:SetValue(newValue)
+end
+
+local function CreateTextureDropdownRow(parent, offsetY, labelText)
+    local row = CreateFrame("Frame", nil, parent)
+    row:SetSize(230, 24)
+    row:SetPoint("TOP", 0, offsetY)
+
+    local label = CreateLabel(parent, labelText)
+    label:SetPoint("LEFT", row, "LEFT", 0, 0)
+    label:SetWidth(88)
+
+    local dropdown = CreateFrame("Button", "IcicleBarsTextureDropdown", parent)
+    dropdown:SetSize(140, 24)
+    dropdown:SetPoint("LEFT", label, "RIGHT", 16, 0)
+    dropdown:SetFrameStrata(parent:GetFrameStrata())
+    dropdown:SetFrameLevel(parent:GetFrameLevel() + 2)
+    dropdown.optionButtons = {}
+
+    dropdown.bg = dropdown:CreateTexture(nil, "BACKGROUND")
+    dropdown.bg:SetAllPoints(dropdown)
+    dropdown.bg:SetColorTexture(0, 0, 0, 0.2)
+
+    dropdown.preview = dropdown:CreateTexture(nil, "BACKGROUND")
+    dropdown.preview:SetPoint("TOPLEFT", dropdown, "TOPLEFT", 4, -4)
+    dropdown.preview:SetPoint("BOTTOMRIGHT", dropdown, "BOTTOMRIGHT", -10, 4)
+
+    dropdown.text = dropdown:CreateFontString(nil, "ARTWORK", "GameFontHighlightSmall")
+    dropdown.text:SetPoint("LEFT", dropdown, "LEFT", 8, 0)
+    dropdown.text:SetPoint("RIGHT", dropdown, "RIGHT", -24, 0)
+    dropdown.text:SetJustifyH("LEFT")
+
+    dropdown.arrow = dropdown:CreateFontString(nil, "OVERLAY", "GameFontNormal")
+    dropdown.arrow:SetPoint("RIGHT", dropdown, "RIGHT", -7, 0)
+    dropdown.arrow:SetText("v")
+
+    local borders = {}
+    for i = 1, 4 do
+        borders[i] = dropdown:CreateTexture(nil, "BORDER")
+        borders[i]:SetColorTexture(0, 0, 0, 0.9)
+    end
+    borders[1]:SetPoint("TOPLEFT", dropdown, "TOPLEFT", 0, 0)
+    borders[1]:SetPoint("TOPRIGHT", dropdown, "TOPRIGHT", 0, 0)
+    borders[1]:SetHeight(1)
+    borders[2]:SetPoint("BOTTOMLEFT", dropdown, "BOTTOMLEFT", 0, 0)
+    borders[2]:SetPoint("BOTTOMRIGHT", dropdown, "BOTTOMRIGHT", 0, 0)
+    borders[2]:SetHeight(1)
+    borders[3]:SetPoint("TOPLEFT", dropdown, "TOPLEFT", 0, 0)
+    borders[3]:SetPoint("BOTTOMLEFT", dropdown, "BOTTOMLEFT", 0, 0)
+    borders[3]:SetWidth(1)
+    borders[4]:SetPoint("TOPRIGHT", dropdown, "TOPRIGHT", 0, 0)
+    borders[4]:SetPoint("BOTTOMRIGHT", dropdown, "BOTTOMRIGHT", 0, 0)
+    borders[4]:SetWidth(1)
+    dropdown.borders = borders
+
+    dropdown.popup = CreateFrame("Frame", nil, parent)
+    dropdown.popup:SetSize(140, (15 * 18) + 8)
+    dropdown.popup:SetPoint("BOTTOMLEFT", dropdown, "TOPLEFT", 0, 4)
+    dropdown.popup:SetFrameStrata("DIALOG")
+    dropdown.popup:SetFrameLevel(dropdown:GetFrameLevel() + 10)
+    dropdown.popup:Hide()
+
+    dropdown.popup.bg = dropdown.popup:CreateTexture(nil, "BACKGROUND")
+    dropdown.popup.bg:SetAllPoints(dropdown.popup)
+    dropdown.popup.bg:SetColorTexture(0.05, 0.05, 0.05, 0.98)
+
+    dropdown.popup.borders = {}
+    for i = 1, 4 do
+        dropdown.popup.borders[i] = dropdown.popup:CreateTexture(nil, "BORDER")
+        dropdown.popup.borders[i]:SetColorTexture(0, 0, 0, 0.95)
+    end
+    dropdown.popup.borders[1]:SetPoint("TOPLEFT", dropdown.popup, "TOPLEFT", 0, 0)
+    dropdown.popup.borders[1]:SetPoint("TOPRIGHT", dropdown.popup, "TOPRIGHT", 0, 0)
+    dropdown.popup.borders[1]:SetHeight(1)
+    dropdown.popup.borders[2]:SetPoint("BOTTOMLEFT", dropdown.popup, "BOTTOMLEFT", 0, 0)
+    dropdown.popup.borders[2]:SetPoint("BOTTOMRIGHT", dropdown.popup, "BOTTOMRIGHT", 0, 0)
+    dropdown.popup.borders[2]:SetHeight(1)
+    dropdown.popup.borders[3]:SetPoint("TOPLEFT", dropdown.popup, "TOPLEFT", 0, 0)
+    dropdown.popup.borders[3]:SetPoint("BOTTOMLEFT", dropdown.popup, "BOTTOMLEFT", 0, 0)
+    dropdown.popup.borders[3]:SetWidth(1)
+    dropdown.popup.borders[4]:SetPoint("TOPRIGHT", dropdown.popup, "TOPRIGHT", 0, 0)
+    dropdown.popup.borders[4]:SetPoint("BOTTOMRIGHT", dropdown.popup, "BOTTOMRIGHT", 0, 0)
+    dropdown.popup.borders[4]:SetWidth(1)
+
+    dropdown.scrollFrame = CreateFrame("ScrollFrame", nil, dropdown.popup)
+    dropdown.scrollFrame:SetPoint("TOPLEFT", dropdown.popup, "TOPLEFT", 2, -2)
+    dropdown.scrollFrame:SetPoint("BOTTOMRIGHT", dropdown.popup, "BOTTOMRIGHT", -18, 2)
+    dropdown.scrollFrame:EnableMouseWheel(true)
+
+    dropdown.content = CreateFrame("Frame", nil, dropdown.scrollFrame)
+    dropdown.content:SetSize(106, 1)
+    dropdown.scrollFrame:SetScrollChild(dropdown.content)
+
+    dropdown.scrollBar = CreateFrame("Slider", nil, dropdown.popup, "UIPanelScrollBarTemplate")
+    dropdown.scrollBar:SetPoint("TOPRIGHT", dropdown.popup, "TOPRIGHT", -2, -18)
+    dropdown.scrollBar:SetPoint("BOTTOMRIGHT", dropdown.popup, "BOTTOMRIGHT", -2, 18)
+    dropdown.scrollBar:SetMinMaxValues(0, 0)
+    dropdown.scrollBar:SetValueStep(18)
+    dropdown.scrollBar:SetObeyStepOnDrag(true)
+    dropdown.scrollBar:SetScript("OnValueChanged", function(self, value)
+        dropdown.scrollFrame:SetVerticalScroll(value)
+    end)
+
+    dropdown.scrollFrame:SetScript("OnMouseWheel", function(_, delta)
+        AdjustTextureDropdownScroll(dropdown, delta)
+    end)
+    dropdown.popup:SetScript("OnMouseWheel", function(_, delta)
+        AdjustTextureDropdownScroll(dropdown, delta)
+    end)
+
+    local previous
+    local entries = GetTextureEntries()
+    for index, entry in ipairs(entries) do
+        local option = CreateFrame("Button", nil, dropdown.content)
+        option:SetSize(106, 18)
+        if previous then
+            option:SetPoint("TOPLEFT", previous, "BOTTOMLEFT", 0, 0)
+        else
+            option:SetPoint("TOPLEFT", dropdown.content, "TOPLEFT", 0, 0)
+        end
+        option.value = entry.name
+
+        option.preview = option:CreateTexture(nil, "BACKGROUND")
+        option.preview:SetPoint("TOPLEFT", option, "TOPLEFT", 2, -2)
+        option.preview:SetPoint("BOTTOMRIGHT", option, "BOTTOMRIGHT", -2, 2)
+        option.preview:SetTexture(entry.path)
+        option.preview:SetVertexColor(1, 1, 1, 0.95)
+
+        option.selected = option:CreateTexture(nil, "ARTWORK")
+        option.selected:SetAllPoints(option)
+        option.selected:SetColorTexture(1, 1, 1, 0.16)
+        option.selected:Hide()
+
+        option.text = option:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
+        option.text:SetPoint("LEFT", option, "LEFT", 6, 0)
+        option.text:SetPoint("RIGHT", option, "RIGHT", -6, 0)
+        option.text:SetJustifyH("LEFT")
+        SetSingleLineEllipsizedText(option.text, entry.name, 94)
+
+        option.highlight = option:CreateTexture(nil, "HIGHLIGHT")
+        option.highlight:SetAllPoints(option)
+        option.highlight:SetColorTexture(1, 1, 1, 0.08)
+
+        option:SetScript("OnClick", function(self)
+            if IcicleBarsDB.barTexture ~= self.value then
+                IcicleBarsDB.barTexture = self.value
+                ApplyConfigChange()
+                config:Refresh()
+            end
+            SetTextureDropdownOpen(dropdown, false)
+        end)
+
+        dropdown.optionButtons[#dropdown.optionButtons + 1] = option
+        previous = option
+    end
+    dropdown.content:SetHeight(#entries * 18)
+
+    dropdown:SetScript("OnClick", function()
+        SetTextureDropdownOpen(dropdown, not dropdown.isOpen)
+    end)
+    dropdown:SetScript("OnEnter", function(self)
+        for _, border in ipairs(self.borders) do
+            border:SetColorTexture(1, 1, 1, 0.9)
+        end
+    end)
+    dropdown:SetScript("OnLeave", function(self)
+        for _, border in ipairs(self.borders) do
+            border:SetColorTexture(0, 0, 0, 0.9)
+        end
+    end)
+
+    return row, label, dropdown
+end
+
+config.rowWidth, config.lblWidth, config.ebWidth = CreateLabeledInputRow(config, -58, L["BAR_WIDTH"], "barWidth", 4.0, 200.0)
+config.rowHeight, config.lblHeight, config.ebHeight = CreateLabeledInputRow(config, -87, L["BAR_HEIGHT"], "barHeight", 2.0, 100.0)
+config.rowGap, config.lblGap, config.ebGap = CreateLabeledInputRow(config, -116, L["BAR_GAP"], "barGap", 0.0, 100.0)
+config.rowBorder, config.lblBorder, config.ebBorder = CreateLabeledInputRow(config, -145, L["BORDER"], "border", 0.0, 20.0)
+config.rowX, config.lblX, config.ebX = CreateLabeledInputRow(config, -174, L["OFFSET_X"], "offsetX", -5000.0, 5000.0)
+config.rowY, config.lblY, config.ebY = CreateLabeledInputRow(config, -203, L["OFFSET_Y"], "offsetY", -5000.0, 5000.0)
+config.rowPartialColor, config.lblPartialColor, config.btnPartialColor = CreateColorPickerRow(config, -232, L["PARTIAL_COLOR"], "partialColor")
+config.rowFullColor, config.lblFullColor, config.btnFullColor = CreateColorPickerRow(config, -261, L["FULL_COLOR"], "fullColor")
+config.rowEmptyColor, config.lblEmptyColor, config.btnEmptyColor = CreateColorPickerRow(config, -290, L["EMPTY_COLOR"], "emptyColor")
+config.rowTexture, config.lblTexture, config.ddTexture = CreateTextureDropdownRow(config, -319, L["BAR_TEXTURE"])
 
 config.btnUnlock = CreateFrame("Button", nil, config, "UIPanelButtonTemplate")
-config.btnUnlock:SetSize(96, 24)
-config.btnUnlock:SetPoint("BOTTOMLEFT", 18, 18)
+config.btnUnlock:SetHeight(24)
+config.btnUnlock:SetPoint("BOTTOMLEFT", config, "BOTTOMLEFT", 5, 34)
+config.btnUnlock:SetPoint("RIGHT", config, "CENTER", -2.5, 0)
 
 config.btnReset = CreateFrame("Button", nil, config, "UIPanelButtonTemplate")
-config.btnReset:SetSize(96, 24)
-config.btnReset:SetPoint("LEFT", config.btnUnlock, "RIGHT", 12, 0)
+config.btnReset:SetHeight(24)
+config.btnReset:SetPoint("BOTTOMRIGHT", config, "BOTTOMRIGHT", -5, 34)
+config.btnReset:SetPoint("LEFT", config, "CENTER", 2.5, 0)
 config.btnReset:SetText(L["RESET"])
 
 config.btnClose = CreateFrame("Button", nil, config, "UIPanelButtonTemplate")
-config.btnClose:SetSize(96, 24)
-config.btnClose:SetPoint("LEFT", config.btnReset, "RIGHT", 12, 0)
+config.btnClose:SetHeight(24)
+config.btnClose:SetPoint("BOTTOMLEFT", config, "BOTTOMLEFT", 5, 5)
+config.btnClose:SetPoint("BOTTOMRIGHT", config, "BOTTOMRIGHT", -5, 5)
 config.btnClose:SetText(L["CLOSE"])
 
 local function ApplyElvUISkin()
@@ -558,6 +867,12 @@ local function ApplyElvUISkin()
         S:HandleButton(config.btnReset)
         S:HandleButton(config.btnClose)
     end
+    if S.HandleFrame then
+        S:HandleFrame(config.ddTexture.popup)
+    end
+    if S.HandleScrollBar then
+        S:HandleScrollBar(config.ddTexture.scrollBar)
+    end
 
     config.isElvUISkinned = true
 end
@@ -573,6 +888,7 @@ function config:Refresh()
     UpdateColorSwatch(self.btnPartialColor, db.partialColor)
     UpdateColorSwatch(self.btnFullColor, db.fullColor)
     UpdateColorSwatch(self.btnEmptyColor, db.emptyColor)
+    UpdateTextureDropdownPreview(self.ddTexture)
     self.btnUnlock:SetText(db.unlocked and "|cff7dd3ff" .. L["LOCK"] .. "|r" or L["UNLOCK"])
 end
 
@@ -612,6 +928,7 @@ frame:SetScript("OnEvent", function(self, event, arg1)
     if event == "ADDON_LOADED" and arg1 == ADDON_NAME then
         IcicleBarsDB = IcicleBarsDB or {}
         CopyDefaults(IcicleBarsDB, defaults)
+        IcicleBarsDB.barTexture = NormalizeBarTexture(IcicleBarsDB.barTexture)
         ApplyLayout()
         UpdateBars()
     elseif event == "PLAYER_LOGIN" then

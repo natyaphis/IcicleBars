@@ -7,7 +7,7 @@ local L = ns.L
 if GetLocale() ~= "enUS" and GetLocale() ~= "enGB" then return end
 
 L["TITLE"] = "IcicleBars by NatYaphis"
-L["SUBTITLE"] = "Configure bar size and position\nshown only in Frost spec"
+L["SUBTITLE"] = "shown only in Frost spec"
 
 L["BAR_WIDTH"]  = "Width"
 L["BAR_HEIGHT"] = "Height"
@@ -18,6 +18,7 @@ L["OFFSET_Y"]   = "Y Offset"
 L["PARTIAL_COLOR"] = "<5 Stacks Color"
 L["FULL_COLOR"] = "5 Stacks Color"
 L["EMPTY_COLOR"] = "Background Color"
+L["BAR_TEXTURE"] = "Texture"
 L["UNLOCK"] = "Unlock"
 L["LOCK"] = "Lock"
 
