@@ -7,6 +7,7 @@ setmetatable(L, { __index = function(_, k) return k end })
 local SPELL_ID = 205473 -- Icicles spell ID for tracking stacks
 local MAX_STACKS = 5
 local FROST_SPEC_ID = 64
+local INVERTED_ALPHA = (WOW_PROJECT_ID ~= WOW_PROJECT_MAINLINE)
 
 local defaults = {
     barWidth  = 57.0,
@@ -15,8 +16,9 @@ local defaults = {
     border    = 1.5,
     offsetX   = 0.0,
     offsetY   = -200.0,
-    partialColor = { r = 0.2, g = 0.6, b = 1.0 },
-    fullColor = { r = 1.0, g = 1.0, b = 1.0 },
+    partialColor = { r = 0.2, g = 0.6, b = 1.0, a = 1.0 },
+    fullColor = { r = 1.0, g = 1.0, b = 1.0, a = 1.0 },
+    emptyColor = { r = 0.2, g = 0.2, b = 0.2, a = 0.8 },
     unlocked  = false,
 }
 
@@ -205,12 +207,12 @@ local function UpdateBars()
         local fill = bars[i].fill
         if i <= count then
             if count == MAX_STACKS then
-                fill:SetColorTexture(db.fullColor.r, db.fullColor.g, db.fullColor.b, 1)
+                fill:SetColorTexture(db.fullColor.r, db.fullColor.g, db.fullColor.b, db.fullColor.a)
             else
-                fill:SetColorTexture(db.partialColor.r, db.partialColor.g, db.partialColor.b, 1)
+                fill:SetColorTexture(db.partialColor.r, db.partialColor.g, db.partialColor.b, db.partialColor.a)
             end
         else
-            fill:SetColorTexture(0.2, 0.2, 0.2, 0.8)
+            fill:SetColorTexture(db.emptyColor.r, db.emptyColor.g, db.emptyColor.b, db.emptyColor.a)
         end
     end
 end
@@ -220,7 +222,7 @@ end
 -- ----------------------------
 local config = CreateFrame("Frame", "IcicleBarsConfigFrame", UIParent, "BasicFrameTemplateWithInset")
 config:Hide()
-config:SetSize(360, 424)
+config:SetSize(360, 456)
 config:SetPoint("CENTER")
 config:SetFrameStrata("DIALOG")
 config:SetClampedToScreen(true)
@@ -352,30 +354,50 @@ local function CreateLabeledInputRow(parent, offsetY, labelText, dbKey, minValue
 end
 
 local function UpdateColorSwatch(button, color)
-    button.swatch:SetColorTexture(color.r, color.g, color.b, 1)
+    button.swatch:SetColorTexture(color.r, color.g, color.b, color.a or 1)
 end
 
 local function OpenColorPicker(initialColor, onChanged)
+    local initialR = initialColor.r
+    local initialG = initialColor.g
+    local initialB = initialColor.b
+    local initialAlpha = initialColor.a or 1
     if ColorPickerFrame and ColorPickerFrame.SetupColorPickerAndShow then
+        local pickerAlpha = initialAlpha
+        if INVERTED_ALPHA then
+            pickerAlpha = 1 - pickerAlpha
+        end
+
         ColorPickerFrame:SetupColorPickerAndShow({
-            r = initialColor.r,
-            g = initialColor.g,
-            b = initialColor.b,
-            hasOpacity = false,
+            r = initialR,
+            g = initialG,
+            b = initialB,
+            opacity = pickerAlpha,
+            hasOpacity = true,
             swatchFunc = function()
                 local r, g, b = ColorPickerFrame:GetColorRGB()
-                onChanged(r, g, b)
-            end,
-            opacityFunc = nil,
-            cancelFunc = function(previousValues)
-                if previousValues then
-                    onChanged(previousValues.r, previousValues.g, previousValues.b)
+                local a = ColorPickerFrame:GetColorAlpha()
+                if INVERTED_ALPHA then
+                    a = 1 - a
                 end
+                onChanged(r, g, b, a)
+            end,
+            opacityFunc = function()
+                local r, g, b = ColorPickerFrame:GetColorRGB()
+                local a = ColorPickerFrame:GetColorAlpha()
+                if INVERTED_ALPHA then
+                    a = 1 - a
+                end
+                onChanged(r, g, b, a)
+            end,
+            cancelFunc = function()
+                onChanged(initialR, initialG, initialB, initialAlpha)
             end,
             previousValues = {
-                r = initialColor.r,
-                g = initialColor.g,
-                b = initialColor.b,
+                r = initialR,
+                g = initialG,
+                b = initialB,
+                a = pickerAlpha,
             },
         })
         return
@@ -385,22 +407,27 @@ local function OpenColorPicker(initialColor, onChanged)
         return
     end
 
-    ColorPickerFrame.hasOpacity = false
+    ColorPickerFrame.hasOpacity = true
     ColorPickerFrame.previousValues = {
-        r = initialColor.r,
-        g = initialColor.g,
-        b = initialColor.b,
+        r = initialR,
+        g = initialG,
+        b = initialB,
     }
     ColorPickerFrame.func = function()
         local r, g, b = ColorPickerFrame:GetColorRGB()
-        onChanged(r, g, b)
+        local a = 1 - OpacitySliderFrame:GetValue()
+        onChanged(r, g, b, a)
     end
-    ColorPickerFrame.cancelFunc = function(previousValues)
-        if previousValues then
-            onChanged(previousValues.r, previousValues.g, previousValues.b)
-        end
+    ColorPickerFrame.opacityFunc = function()
+        local r, g, b = ColorPickerFrame:GetColorRGB()
+        local a = 1 - OpacitySliderFrame:GetValue()
+        onChanged(r, g, b, a)
     end
-    ColorPickerFrame:SetColorRGB(initialColor.r, initialColor.g, initialColor.b)
+    ColorPickerFrame.opacity = 1 - initialAlpha
+    ColorPickerFrame.cancelFunc = function()
+        onChanged(initialR, initialG, initialB, initialAlpha)
+    end
+    ColorPickerFrame:SetColorRGB(initialR, initialG, initialB)
     ColorPickerFrame:Hide()
     ColorPickerFrame:Show()
 end
@@ -414,23 +441,60 @@ local function CreateColorPickerRow(parent, offsetY, labelText, dbKey)
     label:SetPoint("LEFT", row, "LEFT", 0, 0)
     label:SetWidth(88)
 
-    local button = CreateFrame("Button", nil, parent, "UIPanelButtonTemplate")
-    button:SetSize(126, 24)
+    local button = CreateFrame("Button", nil, parent)
+    button:SetSize(24, 24)
     button:SetPoint("LEFT", label, "RIGHT", 16, 0)
-    button:SetText("")
     button.dbKey = dbKey
 
+    local bg = button:CreateTexture(nil, "BACKGROUND")
+    bg:SetAllPoints(button)
+    bg:SetColorTexture(0, 0, 0, 0.35)
+    button.bg = bg
+
     local swatch = button:CreateTexture(nil, "ARTWORK")
-    swatch:SetSize(18, 18)
-    swatch:SetPoint("RIGHT", button, "RIGHT", -6, 0)
+    swatch:SetPoint("TOPLEFT", button, "TOPLEFT", 2, -2)
+    swatch:SetPoint("BOTTOMRIGHT", button, "BOTTOMRIGHT", -2, 2)
     button.swatch = swatch
+
+    local borders = {}
+    local borderColor = { 0, 0, 0, 0.9 }
+    for i = 1, 4 do
+        local border = button:CreateTexture(nil, "BORDER")
+        border:SetColorTexture(unpack(borderColor))
+        borders[i] = border
+    end
+    borders[1]:SetPoint("TOPLEFT", button, "TOPLEFT", 0, 0)
+    borders[1]:SetPoint("TOPRIGHT", button, "TOPRIGHT", 0, 0)
+    borders[1]:SetHeight(1)
+    borders[2]:SetPoint("BOTTOMLEFT", button, "BOTTOMLEFT", 0, 0)
+    borders[2]:SetPoint("BOTTOMRIGHT", button, "BOTTOMRIGHT", 0, 0)
+    borders[2]:SetHeight(1)
+    borders[3]:SetPoint("TOPLEFT", button, "TOPLEFT", 0, 0)
+    borders[3]:SetPoint("BOTTOMLEFT", button, "BOTTOMLEFT", 0, 0)
+    borders[3]:SetWidth(1)
+    borders[4]:SetPoint("TOPRIGHT", button, "TOPRIGHT", 0, 0)
+    borders[4]:SetPoint("BOTTOMRIGHT", button, "BOTTOMRIGHT", 0, 0)
+    borders[4]:SetWidth(1)
+    button.borders = borders
+
+    button:SetScript("OnEnter", function(self)
+        for _, border in ipairs(self.borders) do
+            border:SetColorTexture(1, 1, 1, 0.9)
+        end
+    end)
+    button:SetScript("OnLeave", function(self)
+        for _, border in ipairs(self.borders) do
+            border:SetColorTexture(0, 0, 0, 0.9)
+        end
+    end)
 
     button:SetScript("OnClick", function(self)
         local color = IcicleBarsDB[self.dbKey]
-        OpenColorPicker(color, function(r, g, b)
+        OpenColorPicker(color, function(r, g, b, a)
             color.r = RoundTo(r, 3)
             color.g = RoundTo(g, 3)
             color.b = RoundTo(b, 3)
+            color.a = RoundTo(a or 1, 3)
             UpdateColorSwatch(self, color)
             UpdateBars()
         end)
@@ -447,6 +511,7 @@ config.rowX, config.lblX, config.ebX = CreateLabeledInputRow(config, -236, L["OF
 config.rowY, config.lblY, config.ebY = CreateLabeledInputRow(config, -268, L["OFFSET_Y"], "offsetY", -5000.0, 5000.0)
 config.rowPartialColor, config.lblPartialColor, config.btnPartialColor = CreateColorPickerRow(config, -300, L["PARTIAL_COLOR"], "partialColor")
 config.rowFullColor, config.lblFullColor, config.btnFullColor = CreateColorPickerRow(config, -332, L["FULL_COLOR"], "fullColor")
+config.rowEmptyColor, config.lblEmptyColor, config.btnEmptyColor = CreateColorPickerRow(config, -364, L["EMPTY_COLOR"], "emptyColor")
 
 config.btnUnlock = CreateFrame("Button", nil, config, "UIPanelButtonTemplate")
 config.btnUnlock:SetSize(96, 24)
@@ -492,8 +557,6 @@ local function ApplyElvUISkin()
         S:HandleButton(config.btnUnlock)
         S:HandleButton(config.btnReset)
         S:HandleButton(config.btnClose)
-        S:HandleButton(config.btnPartialColor)
-        S:HandleButton(config.btnFullColor)
     end
 
     config.isElvUISkinned = true
@@ -509,6 +572,7 @@ function config:Refresh()
     self.ebY:SetText(string.format("%.1f", db.offsetY))
     UpdateColorSwatch(self.btnPartialColor, db.partialColor)
     UpdateColorSwatch(self.btnFullColor, db.fullColor)
+    UpdateColorSwatch(self.btnEmptyColor, db.emptyColor)
     self.btnUnlock:SetText(db.unlocked and "|cff7dd3ff" .. L["LOCK"] .. "|r" or L["UNLOCK"])
 end
 

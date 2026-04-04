@@ -17,6 +17,7 @@ L["OFFSET_X"]   = "X Offset"
 L["OFFSET_Y"]   = "Y Offset"
 L["PARTIAL_COLOR"] = "<5 Stacks Color"
 L["FULL_COLOR"] = "5 Stacks Color"
+L["EMPTY_COLOR"] = "Background Color"
 L["UNLOCK"] = "Unlock"
 L["LOCK"] = "Lock"
 

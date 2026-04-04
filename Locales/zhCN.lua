@@ -17,6 +17,7 @@ L["OFFSET_X"]   = "X偏移"
 L["OFFSET_Y"]   = "Y偏移"
 L["PARTIAL_COLOR"] = "未满5层颜色"
 L["FULL_COLOR"] = "5层颜色"
+L["EMPTY_COLOR"] = "背景颜色"
 L["UNLOCK"] = "解锁"
 L["LOCK"] = "锁定"
 
