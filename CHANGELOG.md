@@ -2,6 +2,10 @@
 
 All notable changes to this project will be documented in this file.
 
+## 1.1.4
+
+- Maintenance update.
+
 ## 1.1.3
 
 - Updated localization text across supported locales.

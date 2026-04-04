@@ -305,7 +305,7 @@ end
 -- ----------------------------
 local config = CreateFrame("Frame", "IcicleBarsConfigFrame", UIParent, "BasicFrameTemplateWithInset")
 config:Hide()
-config:SetSize(320, 450)
+config:SetSize(300, 420)
 config:SetPoint("CENTER")
 config:SetFrameStrata("DIALOG")
 config:SetClampedToScreen(true)
@@ -637,6 +637,61 @@ local function AdjustTextureDropdownScroll(dropdown, delta)
     dropdown.scrollBar:SetValue(newValue)
 end
 
+local function RebuildTextureDropdownOptions(dropdown)
+    for _, button in ipairs(dropdown.optionButtons) do
+        button:Hide()
+        button:SetParent(nil)
+    end
+    wipe(dropdown.optionButtons)
+
+    local previous
+    local entries = GetTextureEntries()
+    for _, entry in ipairs(entries) do
+        local option = CreateFrame("Button", nil, dropdown.content)
+        option:SetSize(120, 18)
+        if previous then
+            option:SetPoint("TOPLEFT", previous, "BOTTOMLEFT", 0, 0)
+        else
+            option:SetPoint("TOPLEFT", dropdown.content, "TOPLEFT", 0, 0)
+        end
+        option.value = entry.name
+
+        option.preview = option:CreateTexture(nil, "BACKGROUND")
+        option.preview:SetAllPoints(option)
+        option.preview:SetTexture(entry.path)
+        option.preview:SetVertexColor(1, 1, 1, 0.95)
+
+        option.selected = option:CreateTexture(nil, "ARTWORK")
+        option.selected:SetAllPoints(option)
+        option.selected:SetColorTexture(1, 1, 1, 0.16)
+        option.selected:Hide()
+
+        option.text = option:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
+        option.text:SetPoint("LEFT", option, "LEFT", 6, 0)
+        option.text:SetPoint("RIGHT", option, "RIGHT", -6, 0)
+        option.text:SetJustifyH("LEFT")
+        SetSingleLineEllipsizedText(option.text, entry.name, 94)
+
+        option.highlight = option:CreateTexture(nil, "HIGHLIGHT")
+        option.highlight:SetAllPoints(option)
+        option.highlight:SetColorTexture(1, 1, 1, 0.08)
+
+        option:SetScript("OnClick", function(self)
+            if IcicleBarsDB.barTexture ~= self.value then
+                IcicleBarsDB.barTexture = self.value
+                ApplyConfigChange()
+                config:Refresh()
+            end
+            SetTextureDropdownOpen(dropdown, false)
+        end)
+
+        dropdown.optionButtons[#dropdown.optionButtons + 1] = option
+        previous = option
+    end
+
+    dropdown.content:SetHeight(#entries * 18)
+end
+
 local function CreateTextureDropdownRow(parent, offsetY, labelText)
     local row = CreateFrame("Frame", nil, parent)
     row:SetSize(230, 24)
@@ -724,7 +779,7 @@ local function CreateTextureDropdownRow(parent, offsetY, labelText)
     dropdown.scrollFrame:EnableMouseWheel(true)
 
     dropdown.content = CreateFrame("Frame", nil, dropdown.scrollFrame)
-    dropdown.content:SetSize(106, 1)
+    dropdown.content:SetSize(120, 1)
     dropdown.scrollFrame:SetScrollChild(dropdown.content)
 
     dropdown.scrollBar = CreateFrame("Slider", nil, dropdown.popup, "UIPanelScrollBarTemplate")
@@ -744,54 +799,10 @@ local function CreateTextureDropdownRow(parent, offsetY, labelText)
         AdjustTextureDropdownScroll(dropdown, delta)
     end)
 
-    local previous
-    local entries = GetTextureEntries()
-    for index, entry in ipairs(entries) do
-        local option = CreateFrame("Button", nil, dropdown.content)
-        option:SetSize(106, 18)
-        if previous then
-            option:SetPoint("TOPLEFT", previous, "BOTTOMLEFT", 0, 0)
-        else
-            option:SetPoint("TOPLEFT", dropdown.content, "TOPLEFT", 0, 0)
-        end
-        option.value = entry.name
-
-        option.preview = option:CreateTexture(nil, "BACKGROUND")
-        option.preview:SetPoint("TOPLEFT", option, "TOPLEFT", 2, -2)
-        option.preview:SetPoint("BOTTOMRIGHT", option, "BOTTOMRIGHT", -2, 2)
-        option.preview:SetTexture(entry.path)
-        option.preview:SetVertexColor(1, 1, 1, 0.95)
-
-        option.selected = option:CreateTexture(nil, "ARTWORK")
-        option.selected:SetAllPoints(option)
-        option.selected:SetColorTexture(1, 1, 1, 0.16)
-        option.selected:Hide()
-
-        option.text = option:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
-        option.text:SetPoint("LEFT", option, "LEFT", 6, 0)
-        option.text:SetPoint("RIGHT", option, "RIGHT", -6, 0)
-        option.text:SetJustifyH("LEFT")
-        SetSingleLineEllipsizedText(option.text, entry.name, 94)
-
-        option.highlight = option:CreateTexture(nil, "HIGHLIGHT")
-        option.highlight:SetAllPoints(option)
-        option.highlight:SetColorTexture(1, 1, 1, 0.08)
-
-        option:SetScript("OnClick", function(self)
-            if IcicleBarsDB.barTexture ~= self.value then
-                IcicleBarsDB.barTexture = self.value
-                ApplyConfigChange()
-                config:Refresh()
-            end
-            SetTextureDropdownOpen(dropdown, false)
-        end)
-
-        dropdown.optionButtons[#dropdown.optionButtons + 1] = option
-        previous = option
-    end
-    dropdown.content:SetHeight(#entries * 18)
+    RebuildTextureDropdownOptions(dropdown)
 
     dropdown:SetScript("OnClick", function()
+        RebuildTextureDropdownOptions(dropdown)
         SetTextureDropdownOpen(dropdown, not dropdown.isOpen)
     end)
     dropdown:SetScript("OnEnter", function(self)
@@ -821,19 +832,19 @@ config.rowTexture, config.lblTexture, config.ddTexture = CreateTextureDropdownRo
 
 config.btnUnlock = CreateFrame("Button", nil, config, "UIPanelButtonTemplate")
 config.btnUnlock:SetHeight(24)
-config.btnUnlock:SetPoint("BOTTOMLEFT", config, "BOTTOMLEFT", 5, 34)
+config.btnUnlock:SetPoint("BOTTOMLEFT", config, "BOTTOMLEFT", 20, 46)
 config.btnUnlock:SetPoint("RIGHT", config, "CENTER", -2.5, 0)
 
 config.btnReset = CreateFrame("Button", nil, config, "UIPanelButtonTemplate")
 config.btnReset:SetHeight(24)
-config.btnReset:SetPoint("BOTTOMRIGHT", config, "BOTTOMRIGHT", -5, 34)
+config.btnReset:SetPoint("BOTTOMRIGHT", config, "BOTTOMRIGHT", -20, 46)
 config.btnReset:SetPoint("LEFT", config, "CENTER", 2.5, 0)
 config.btnReset:SetText(L["RESET"])
 
 config.btnClose = CreateFrame("Button", nil, config, "UIPanelButtonTemplate")
 config.btnClose:SetHeight(24)
-config.btnClose:SetPoint("BOTTOMLEFT", config, "BOTTOMLEFT", 5, 5)
-config.btnClose:SetPoint("BOTTOMRIGHT", config, "BOTTOMRIGHT", -5, 5)
+config.btnClose:SetPoint("BOTTOMLEFT", config, "BOTTOMLEFT", 20, 17)
+config.btnClose:SetPoint("BOTTOMRIGHT", config, "BOTTOMRIGHT", -20, 17)
 config.btnClose:SetText(L["CLOSE"])
 
 local function ApplyElvUISkin()
