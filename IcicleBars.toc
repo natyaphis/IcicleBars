@@ -1,8 +1,8 @@
-## Interface: 120001, 120005
+## Interface: 120001, 120005, 120007
 ## Title: IcicleBars
 ## Notes: Frost Mage Icicles (5 bars)
 ## Author: Nathan
-## Version: 1.1.5
+## Version: 1.1.6
 ## SavedVariables: IcicleBarsDB
 ## IconTexture: Interface\AddOns\IcicleBars\Media\Icon.tga
 ## Category: Combat
